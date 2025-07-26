@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup>
+    <Content
+      Include="$(MSBuildThisFileDirectory)..\runtime\**\*"
+       CopyToOutputDirectory="PreserveNewest"
+       Pack="true"
+       Visible="false" />
+  </ItemGroup>
+</Project>

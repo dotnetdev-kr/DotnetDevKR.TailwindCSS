@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+  <Nullable>enable</Nullable>
+    <TargetFramework>net6.0</TargetFramework>
+    <PackageId>DotnetDevKR.TailwindCSS</PackageId>
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <Version>0.0.1+v4.1.11</Version>
+    <Authors>DotnetDevKR</Authors>
+    <PackageTags>TailwindCSS</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="15.9.20" />
+    <ProjectReference Include="..\DotnetDevKR.TailwindCSS.Compile\DotnetDevKR.TailwindCSS.Compile.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TfmSpecificPackageFile Include="$(OutputPath)$(AssemblyName).dll" PackagePath="lib\$(TargetFramework)" />
+    <TfmSpecificPackageFile Include="$(OutputPath)DotnetDevKR.TailwindCSS.Compile.dll" PackagePath="lib\$(TargetFramework)" />
+    <Content Include="build\**" PackagePath="build" />
+    <None Include="runtime\**\*" Pack="true" PackagePath="build/runtime" />
+  </ItemGroup>
+</Project>
