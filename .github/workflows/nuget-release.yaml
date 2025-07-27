@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -26,7 +27,12 @@ jobs:
       - name: Extract version from tag
         id: extract_version
         run: |
-          # remove "refs/tags/v" prefix to get version number
+          # Ensure all tags are available locally
+          git fetch --tags --prune
+
+          # Find the latest semver tag (v*.*.*) and set GITHUB_REF accordingly
+          LATEST_TAG=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n1)
+          export GITHUB_REF="refs/tags/${LATEST_TAG}"
           VERSION_TAG=${GITHUB_REF#refs/tags/v}
           VERSION="$VERSION_TAG+${TAILWINDCSS_VERSION//v/}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
