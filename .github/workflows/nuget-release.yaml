@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: "8.x"
+          dotnet-version: "9.x"
 
       - name: Get latest Tailwind CSS version
         id: get_tailwind_version
@@ -34,7 +34,7 @@ jobs:
           LATEST_TAG=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n1)
           export GITHUB_REF="refs/tags/${LATEST_TAG}"
           VERSION_TAG=${GITHUB_REF#refs/tags/v}
-          VERSION="$VERSION_TAG+${TAILWINDCSS_VERSION//v/}"
+          VERSION="$VERSION_TAG+v${TAILWINDCSS_VERSION//v/}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Download TailwindCSS executables
