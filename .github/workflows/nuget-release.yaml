@@ -1,0 +1,55 @@
+name: Publish NuGet Package
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.x"
+
+      - name: Get latest Tailwind CSS version
+        id: get_tailwind_version
+        run: |
+          LATEST_TAILWIND_VERSION=$(curl -s https://api.github.com/repos/tailwindlabs/tailwindcss/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "TAILWINDCSS_VERSION=$LATEST_TAILWIND_VERSION" >> $GITHUB_ENV
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          # remove "refs/tags/v" prefix to get version number
+          VERSION_TAG=${GITHUB_REF#refs/tags/v}
+          VERSION="$VERSION_TAG+${{ env.TAILWINDCSS_VERSION//v/ }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Download TailwindCSS executables
+        run: |
+          chmod +x ./DotnetDevKR.TailwindCSS/runtime/install.sh
+          ./DotnetDevKR.TailwindCSS/runtime/install.sh ${{ env.TAILWINDCSS_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Pack
+        run: |
+          dotnet pack ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj --configuration Release \
+            --no-build \
+            --output ./artifacts \
+            /p:Version=${{ env.VERSION }}
+
+      - name: Publish to NuGet
+        run: |
+          dotnet nuget push ./artifacts/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key ${{ secrets.NUGET_API_KEY }}
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
