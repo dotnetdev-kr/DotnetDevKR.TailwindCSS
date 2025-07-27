@@ -15,16 +15,14 @@ public class TailwindCSSCompiler
         string OutputFilename,
         string ProjectDir,
         bool isMinify = false,
-        bool isDebug = false,
-        bool watch = false
+        bool isDebug = false
     )
     {
         var process = CreateTailwindCSSProcess(
             MSBuildThisFileDirectory,
             $"-i {InputFilename} -o {OutputFilename} --cwd {ProjectDir}" +
             (isMinify ? " --minify" : "") +
-            (isDebug ? " --map" : "") +
-            (watch ? " --watch" : "")
+            (isDebug ? " --map" : "")
         );
 
         var errorOutput = new MemoryStream();

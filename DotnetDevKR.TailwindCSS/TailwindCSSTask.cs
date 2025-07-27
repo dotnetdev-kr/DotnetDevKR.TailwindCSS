@@ -15,7 +15,6 @@ public class TailwindCSSTask : Microsoft.Build.Utilities.Task
     public string MSBuildThisFileDirectory { get; set; }
     public bool IsMinify { get; set; } = false;
     public bool DebugMode { get; set; } = false;
-    public bool DotNetWatch { get; set; } = false;
 
     public override bool Execute()
     {
@@ -32,8 +31,7 @@ public class TailwindCSSTask : Microsoft.Build.Utilities.Task
             OutputFilename,
             ProjectDir,
             IsMinify,
-            DebugMode,
-            DotNetWatch
+            DebugMode
         ).GetAwaiter().GetResult();
 
         return !Log.HasLoggedErrors;

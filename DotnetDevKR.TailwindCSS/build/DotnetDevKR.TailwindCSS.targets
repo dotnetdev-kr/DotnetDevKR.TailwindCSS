@@ -1,10 +1,14 @@
 <Project>
   <ItemGroup>
     <CompilerVisibleProperty Include="ProjectDir" />
-    <CompilerVisibleProperty Include="DotnetWatch" />
   </ItemGroup>
   <UsingTask TaskName="TailwindCSSTask" AssemblyFile="$(MSBuildThisFileDirectory)..\lib\net6.0\DotnetDevKR.TailwindCSS.dll" />
-  <Target Name="RunTailwindCSSTask" BeforeTargets="Build">
+  <Target
+    Name="RunTailwindCSSTask"
+    BeforeTargets="Build"
+    Inputs="@(Watch);$(InputFilename)"
+    Outputs="$(OutputFilename)">
+
     <Message Text="Running Tailwind CSS task..." Importance="high" />
     <TailwindCSSTask
       MSBuildThisFileDirectory="$(MSBuildThisFileDirectory)"
@@ -12,7 +16,6 @@
       OutputFilename="$(OutputFilename)"
       IsMinify="$(IsMinify)"
       DebugMode="$(DebugMode)"
-      ProjectDir="$(ProjectDir)"
-      DotNetWatch="$(DotNetWatch)" />
+      ProjectDir="$(ProjectDir)" />
   </Target>
 </Project>

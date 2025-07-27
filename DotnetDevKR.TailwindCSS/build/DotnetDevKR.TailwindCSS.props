@@ -6,4 +6,11 @@
        Pack="true"
        Visible="false" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Watch Include="**\*.razor" AlwaysRebuild="true" />
+    <Watch Include="**\*.html" AlwaysRebuild="true" />
+    <Watch Include="**\*.cshtml" AlwaysRebuild="true" />
+    <Watch Include="**\*.cs" AlwaysRebuild="true" />
+  </ItemGroup>
 </Project>
