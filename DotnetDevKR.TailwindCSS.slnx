@@ -1,4 +1,9 @@
 <Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
   <Project Path="DotnetDevKR.TailwindCSS.Compile/DotnetDevKR.TailwindCSS.Compile.csproj" />
   <Project Path="DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj" />
 </Solution>
