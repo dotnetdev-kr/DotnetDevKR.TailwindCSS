@@ -43,7 +43,7 @@ jobs:
           ./DotnetDevKR.TailwindCSS/runtime/install.sh ${{ env.TAILWINDCSS_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj
 
       - name: Pack
         run: |
