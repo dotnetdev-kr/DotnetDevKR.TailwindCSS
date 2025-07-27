@@ -1,1 +1,4 @@
-<Solution />
+<Solution>
+  <Project Path="DotnetDevKR.TailwindCSS.Compile/DotnetDevKR.TailwindCSS.Compile.csproj" />
+  <Project Path="DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj" />
+</Solution>
