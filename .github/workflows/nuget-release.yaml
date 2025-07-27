@@ -42,11 +42,11 @@ jobs:
           chmod +x ./DotnetDevKR.TailwindCSS/runtime/install.sh
           ./DotnetDevKR.TailwindCSS/runtime/install.sh ${{ env.TAILWINDCSS_VERSION }}
 
-      - name: Build
-        run: dotnet build DotnetDevKR.TailwindCSS.sln --configuration Release
-
       - name: Restore dependencies
-        run: dotnet restore DotnetDevKR.TailwindCSS.sln --source https://api.nuget.org/v3/index.json
+        run: dotnet restore DotnetDevKR.TailwindCSS.sln
+
+      - name: Build
+        run: dotnet build DotnetDevKR.TailwindCSS.sln --configuration Release --no-restore
 
       - name: Pack
         run: |
