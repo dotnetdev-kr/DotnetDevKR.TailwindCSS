@@ -28,7 +28,7 @@ jobs:
         run: |
           # remove "refs/tags/v" prefix to get version number
           VERSION_TAG=${GITHUB_REF#refs/tags/v}
-          VERSION="$VERSION_TAG+${{ env.TAILWINDCSS_VERSION//v/ }}"
+          VERSION="$VERSION_TAG+${TAILWINDCSS_VERSION//v/}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Download TailwindCSS executables
