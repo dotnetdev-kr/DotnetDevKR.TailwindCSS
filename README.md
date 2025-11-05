@@ -13,11 +13,33 @@ A .NET MSBuild integration package for TailwindCSS that automatically compiles y
 
 ## Installation
 
+### From NuGet.org
+
 Install the NuGet package in your .NET project:
 
 ```bash
 dotnet add package DotnetDevKR.TailwindCSS
 ```
+
+### From GitHub Packages
+
+You can also install the package from GitHub Packages:
+
+1. Add GitHub Packages as a NuGet source (one time setup):
+   ```bash
+   dotnet nuget add source https://nuget.pkg.github.com/dotnetdev-kr/index.json \
+     --name github \
+     --username YOUR_GITHUB_USERNAME \
+     --password YOUR_GITHUB_PAT \
+     --store-password-in-clear-text
+   ```
+
+2. Install the package:
+   ```bash
+   dotnet add package DotnetDevKR.TailwindCSS
+   ```
+
+> **Note:** You need a GitHub Personal Access Token (PAT) with `read:packages` scope to install from GitHub Packages.
 
 ## Quick Start
 
