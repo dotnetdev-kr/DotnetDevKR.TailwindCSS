@@ -106,6 +106,22 @@ Check out the `DotnetDevKR.TailwindCSS.WebTest` folder for a complete Blazor Web
 3. **TailwindCSS Execution**: Runs the appropriate TailwindCSS standalone executable
 4. **File Processing**: Compiles your input CSS file and outputs the result
 
+## Automatic TailwindCSS Version Updates
+
+This package automatically stays up-to-date with the latest TailwindCSS releases:
+
+- 🤖 **Automated Checks**: Daily automated checks for new TailwindCSS versions
+- 📦 **Auto-Publishing**: Automatically builds and publishes updated NuGet packages
+- 🏷️ **Version Format**: `{library-version}+v{tailwindcss-version}` (e.g., `0.1.0+v4.1.11`)
+- 🔄 **Seamless Updates**: Simply update the NuGet package to get the latest TailwindCSS features
+
+When a new TailwindCSS version is released, our GitHub Actions workflow:
+1. Detects the new version
+2. Updates the package version (increments patch version)
+3. Downloads the latest TailwindCSS executables
+4. Builds and publishes to NuGet.org
+5. Creates a GitHub release with release notes
+
 ## Requirements
 
 - .NET 6.0 or higher

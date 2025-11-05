@@ -5,6 +5,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <PackageId>DotnetDevKR.TailwindCSS</PackageId>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryType>git</RepositoryType>
     <Version>0.0.1+v4.1.11</Version>
     <Authors>DotnetDevKR</Authors>
@@ -20,5 +21,6 @@
     <TfmSpecificPackageFile Include="$(OutputPath)DotnetDevKR.TailwindCSS.Compile.dll" PackagePath="lib\$(TargetFramework)" />
     <Content Include="build\**" PackagePath="build" />
     <None Include="runtime\**\*" Pack="true" PackagePath="build/runtime" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
