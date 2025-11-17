@@ -51,7 +51,7 @@ jobs:
               echo "No version found in NuGet. Using default."
               LIB_VERSION="0.0.0.0"
               CURRENT_TAILWIND_VERSION="0.0.0"
-              CURRENT_REVISION="0"
+              CURRENT_REVISION="1"
             else
               echo "Latest NuGet library version: $LIB_VERSION"
 
@@ -76,7 +76,7 @@ jobs:
                     CURRENT_TAILWIND_VERSION="0.0.0"
                   fi
                 fi
-                CURRENT_REVISION="0"
+                CURRENT_REVISION="1"
               fi
             fi
 
@@ -89,7 +89,7 @@ jobs:
             echo "Package not found on NuGet. This might be the first publish."
             echo "lib_version=0.0.0.0" >> $GITHUB_OUTPUT
             echo "current_tailwind_version=0.0.0" >> $GITHUB_OUTPUT
-            echo "current_revision=0" >> $GITHUB_OUTPUT
+            echo "current_revision=1" >> $GITHUB_OUTPUT
           fi
 
       - name: Check if update is needed
@@ -103,9 +103,9 @@ jobs:
             echo "Update needed: $CURRENT_TAILWIND_VERSION -> $TAILWINDCSS_VERSION_CLEAN"
             echo "update_needed=true" >> $GITHUB_OUTPUT
 
-            # New TailwindCSS version, reset revision to 0
+            # New TailwindCSS version, reset revision to 1
             # Version format: {TailwindMajor}.{TailwindMinor}.{TailwindPatch}.{Revision}
-            NEW_REVISION="0"
+            NEW_REVISION="1"
             NEW_LIB_VERSION="$TAILWINDCSS_VERSION_CLEAN.$NEW_REVISION"
 
             echo "New library version: $NEW_LIB_VERSION"
@@ -210,4 +210,5 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
