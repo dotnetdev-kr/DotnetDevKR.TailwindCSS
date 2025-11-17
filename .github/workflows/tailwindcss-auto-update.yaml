@@ -7,7 +7,118 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-and-update:
+  check-update:
+    runs-on: ubuntu-latest
+    outputs:
+      update_needed: ${{ steps.check_update.outputs.update_needed }}
+      tailwindcss_version: ${{ steps.get_tailwind_version.outputs.tailwindcss_version }}
+      tailwindcss_version_clean: ${{ steps.get_tailwind_version.outputs.tailwindcss_version_clean }}
+      current_tailwind_version: ${{ steps.get_nuget_version.outputs.current_tailwind_version }}
+      current_revision: ${{ steps.get_nuget_version.outputs.current_revision }}
+      lib_version: ${{ steps.get_nuget_version.outputs.lib_version }}
+      new_lib_version: ${{ steps.check_update.outputs.new_lib_version }}
+      new_version: ${{ steps.check_update.outputs.new_version }}
+
+    steps:
+      - name: Get latest TailwindCSS version
+        id: get_tailwind_version
+        run: |
+          set -e
+          LATEST_TAILWIND_VERSION=$(curl -s https://api.github.com/repos/tailwindlabs/tailwindcss/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$LATEST_TAILWIND_VERSION" ]; then
+            echo "Error: Failed to fetch latest TailwindCSS version from GitHub API." >&2
+            exit 1
+          fi
+          echo "Latest TailwindCSS version: $LATEST_TAILWIND_VERSION"
+          echo "tailwindcss_version=$LATEST_TAILWIND_VERSION" >> $GITHUB_OUTPUT
+          echo "tailwindcss_version_clean=${LATEST_TAILWIND_VERSION//v/}" >> $GITHUB_OUTPUT
+
+      - name: Get current version from NuGet
+        id: get_nuget_version
+        run: |
+          set -e
+          PACKAGE_NAME="DotnetDevKR.TailwindCSS"
+
+          # Fetch all versions from NuGet API
+          NUGET_RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json")
+
+          if echo "$NUGET_RESPONSE" | grep -q '"versions"'; then
+            # Get the latest version from NuGet (supports both 3-part and 4-part versions)
+            # Version format: {TailwindMajor}.{TailwindMinor}.{TailwindPatch}.{Revision}
+            LIB_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"\d+\.\d+\.\d+(\.\d+)?' | tail -1 | tr -d '"')
+
+            if [ -z "$LIB_VERSION" ]; then
+              echo "No version found in NuGet. Using default."
+              LIB_VERSION="0.0.0.0"
+              CURRENT_TAILWIND_VERSION="0.0.0"
+              CURRENT_REVISION="0"
+            else
+              echo "Latest NuGet library version: $LIB_VERSION"
+
+              # Parse version: could be 3-part (old) or 4-part (new format)
+              IFS='.' read -ra VERSION_PARTS <<< "$LIB_VERSION"
+              if [ ${#VERSION_PARTS[@]} -eq 4 ]; then
+                # New format: TailwindMajor.TailwindMinor.TailwindPatch.Revision
+                CURRENT_TAILWIND_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.${VERSION_PARTS[2]}"
+                CURRENT_REVISION="${VERSION_PARTS[3]}"
+              else
+                # Old format: need to fetch from nuspec
+                NUSPEC_URL="https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/${LIB_VERSION}/${PACKAGE_NAME,,}.nuspec"
+                echo "Fetching nuspec from: $NUSPEC_URL"
+                NUSPEC_RESPONSE=$(curl -s "$NUSPEC_URL")
+
+                CURRENT_TAILWIND_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP 'TailwindCSS[^0-9]*v?\K\d+\.\d+\.\d+' | head -1)
+                if [ -z "$CURRENT_TAILWIND_VERSION" ]; then
+                  FULL_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP '<version>\K[^<]+')
+                  if echo "$FULL_VERSION" | grep -q '+v'; then
+                    CURRENT_TAILWIND_VERSION=$(echo "$FULL_VERSION" | cut -d'+' -f2 | sed 's/v//')
+                  else
+                    CURRENT_TAILWIND_VERSION="0.0.0"
+                  fi
+                fi
+                CURRENT_REVISION="0"
+              fi
+            fi
+
+            echo "lib_version=$LIB_VERSION" >> $GITHUB_OUTPUT
+            echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
+            echo "Current revision: $CURRENT_REVISION"
+            echo "current_tailwind_version=$CURRENT_TAILWIND_VERSION" >> $GITHUB_OUTPUT
+            echo "current_revision=$CURRENT_REVISION" >> $GITHUB_OUTPUT
+          else
+            echo "Package not found on NuGet. This might be the first publish."
+            echo "lib_version=0.0.0.0" >> $GITHUB_OUTPUT
+            echo "current_tailwind_version=0.0.0" >> $GITHUB_OUTPUT
+            echo "current_revision=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if update is needed
+        id: check_update
+        run: |
+          CURRENT_TAILWIND_VERSION="${{ steps.get_nuget_version.outputs.current_tailwind_version }}"
+          TAILWINDCSS_VERSION_CLEAN="${{ steps.get_tailwind_version.outputs.tailwindcss_version_clean }}"
+          CURRENT_REVISION="${{ steps.get_nuget_version.outputs.current_revision }}"
+
+          if [ "$CURRENT_TAILWIND_VERSION" != "$TAILWINDCSS_VERSION_CLEAN" ]; then
+            echo "Update needed: $CURRENT_TAILWIND_VERSION -> $TAILWINDCSS_VERSION_CLEAN"
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+
+            # New TailwindCSS version, reset revision to 0
+            # Version format: {TailwindMajor}.{TailwindMinor}.{TailwindPatch}.{Revision}
+            NEW_REVISION="0"
+            NEW_LIB_VERSION="$TAILWINDCSS_VERSION_CLEAN.$NEW_REVISION"
+
+            echo "New library version: $NEW_LIB_VERSION"
+            echo "new_lib_version=$NEW_LIB_VERSION" >> $GITHUB_OUTPUT
+            echo "new_version=$NEW_LIB_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "No update needed. Current version is already up to date."
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-publish:
+    needs: check-update
+    if: needs.check-update.outputs.update_needed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,109 +135,45 @@ jobs:
         with:
           dotnet-version: "9.x"
 
-      - name: Get latest TailwindCSS version
-        id: get_tailwind_version
-        run: |
-          set -e
-          LATEST_TAILWIND_VERSION=$(curl -s https://api.github.com/repos/tailwindlabs/tailwindcss/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          if [ -z "$LATEST_TAILWIND_VERSION" ]; then
-            echo "Error: Failed to fetch latest TailwindCSS version from GitHub API." >&2
-            exit 1
-          fi
-          echo "Latest TailwindCSS version: $LATEST_TAILWIND_VERSION"
-          echo "TAILWINDCSS_VERSION=$LATEST_TAILWIND_VERSION" >> $GITHUB_ENV
-          echo "TAILWINDCSS_VERSION_CLEAN=${LATEST_TAILWIND_VERSION//v/}" >> $GITHUB_ENV
-      - name: Get current version from csproj
-        id: get_current_version
-        run: |
-          set -e
-          CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj)
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "Error: Failed to extract current version from csproj file." >&2
-            exit 1
-          fi
-          echo "Current version: $CURRENT_VERSION"
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
-
-          # Extract library version and TailwindCSS version
-          LIB_VERSION=$(echo $CURRENT_VERSION | cut -d'+' -f1)
-          CURRENT_TAILWIND_VERSION=$(echo $CURRENT_VERSION | cut -d'+' -f2 | sed 's/v//')
-          if [ -z "$LIB_VERSION" ] || [ -z "$CURRENT_TAILWIND_VERSION" ]; then
-            echo "Error: Malformed version string in csproj file." >&2
-            exit 1
-          fi
-
-          echo "Current library version: $LIB_VERSION"
-          echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
-          echo "LIB_VERSION=$LIB_VERSION" >> $GITHUB_ENV
-          echo "CURRENT_TAILWIND_VERSION=$CURRENT_TAILWIND_VERSION" >> $GITHUB_ENV
-
-      - name: Check if update is needed
-        id: check_update
-        run: |
-          if [ "$CURRENT_TAILWIND_VERSION" != "$TAILWINDCSS_VERSION_CLEAN" ]; then
-            echo "Update needed: $CURRENT_TAILWIND_VERSION -> $TAILWINDCSS_VERSION_CLEAN"
-            echo "UPDATE_NEEDED=true" >> $GITHUB_ENV
-
-            # Increment patch version (0.1.0 -> 0.1.1)
-            IFS='.' read -ra VERSION_PARTS <<< "$LIB_VERSION"
-            MAJOR=${VERSION_PARTS[0]}
-            MINOR=${VERSION_PARTS[1]}
-            PATCH=${VERSION_PARTS[2]}
-            # NEW_PATCH=$((PATCH + 1))
-            NEW_PATCH=$((PATCH))
-            NEW_LIB_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-
-            echo "New library version: $NEW_LIB_VERSION"
-            echo "NEW_LIB_VERSION=$NEW_LIB_VERSION" >> $GITHUB_ENV
-            echo "NEW_VERSION=$NEW_LIB_VERSION+v$TAILWINDCSS_VERSION_CLEAN" >> $GITHUB_ENV
-          else
-            echo "No update needed. Current version is already up to date."
-            echo "UPDATE_NEEDED=false" >> $GITHUB_ENV
-          fi
-
       - name: Update version in csproj
-        if: env.UPDATE_NEEDED == 'true'
         run: |
-          sed -i "s|<Version>.*</Version>|<Version>${NEW_VERSION}</Version>|" ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj
-          echo "Updated csproj to version: $NEW_VERSION"
+          sed -i "s|<Version>.*</Version>|<Version>${{ needs.check-update.outputs.new_version }}</Version>|" ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj
+          echo "Updated csproj to version: ${{ needs.check-update.outputs.new_version }}"
 
       - name: Update version in install.sh
-        if: env.UPDATE_NEEDED == 'true'
         run: |
-          sed -i "s|VERSION=\${1:-\"v[^\"]*\"}|VERSION=\${1:-\"${TAILWINDCSS_VERSION}\"}|" ./DotnetDevKR.TailwindCSS/runtime/install.sh
-          echo "Updated install.sh to TailwindCSS version: $TAILWINDCSS_VERSION"
+          sed -i "s|VERSION=\${1:-\"v[^\"]*\"}|VERSION=\${1:-\"${{ needs.check-update.outputs.tailwindcss_version }}\"}|" ./DotnetDevKR.TailwindCSS/runtime/install.sh
+          echo "Updated install.sh to TailwindCSS version: ${{ needs.check-update.outputs.tailwindcss_version }}"
 
       - name: Download TailwindCSS executables
-        if: env.UPDATE_NEEDED == 'true'
         run: |
           chmod +x ./DotnetDevKR.TailwindCSS/runtime/install.sh
-          ./DotnetDevKR.TailwindCSS/runtime/install.sh ${{ env.TAILWINDCSS_VERSION }}
+          ./DotnetDevKR.TailwindCSS/runtime/install.sh ${{ needs.check-update.outputs.tailwindcss_version }}
 
       - name: Restore dependencies
-        if: env.UPDATE_NEEDED == 'true'
         run: dotnet restore DotnetDevKR.TailwindCSS.sln
 
       - name: Build
-        if: env.UPDATE_NEEDED == 'true'
         run: dotnet build DotnetDevKR.TailwindCSS.sln --configuration Release --no-restore
 
       - name: Pack
-        if: env.UPDATE_NEEDED == 'true'
         run: |
           dotnet pack ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj --configuration Release \
             --no-build --no-restore \
             --output ./artifacts \
-            /p:Version=${{ env.NEW_VERSION }}
+            /p:Version=${{ needs.check-update.outputs.new_version }}
 
-      - name: Push changes and tags
-        if: env.UPDATE_NEEDED == 'true'
+      - name: Commit and push changes
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: Update TailwindCSS to ${{ needs.check-update.outputs.tailwindcss_version }} and bump version to ${{ needs.check-update.outputs.new_version }}"
+          git tag "v${{ needs.check-update.outputs.new_lib_version }}"
           git push origin ${{ github.ref_name }}
-          git push origin "v${{ env.NEW_LIB_VERSION }}"
+          git push origin "v${{ needs.check-update.outputs.new_lib_version }}"
 
       - name: Publish to NuGet.org
-        if: env.UPDATE_NEEDED == 'true'
         run: |
           dotnet nuget push ./artifacts/*.nupkg \
             --source https://api.nuget.org/v3/index.json \
@@ -136,7 +183,6 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
       - name: Publish to GitHub Packages
-        if: env.UPDATE_NEEDED == 'true'
         run: |
           dotnet nuget push ./artifacts/*.nupkg \
             --source https://nuget.pkg.github.com/dotnetdev-kr/index.json \
@@ -146,23 +192,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
-        if: env.UPDATE_NEEDED == 'true'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.NEW_LIB_VERSION }}
-          name: Release v${{ env.NEW_LIB_VERSION }}
+          tag_name: v${{ needs.check-update.outputs.new_lib_version }}
+          name: Release v${{ needs.check-update.outputs.new_lib_version }}
           body: |
             ## Updates
-            - Updated TailwindCSS from v${{ env.CURRENT_TAILWIND_VERSION }} to ${{ env.TAILWINDCSS_VERSION }}
-            - Package version: ${{ env.NEW_VERSION }}
+            - Updated TailwindCSS from v${{ needs.check-update.outputs.current_tailwind_version }} to ${{ needs.check-update.outputs.tailwindcss_version }}
+            - Package version: ${{ needs.check-update.outputs.new_version }}
 
             ## Installation
             ```bash
-            dotnet add package DotnetDevKR.TailwindCSS --version ${{ env.NEW_VERSION }}
+            dotnet add package DotnetDevKR.TailwindCSS --version ${{ needs.check-update.outputs.new_version }}
             ```
           files: ./artifacts/*.nupkg
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
