@@ -36,30 +36,42 @@ jobs:
           echo "Latest TailwindCSS version: $LATEST_TAILWIND_VERSION"
           echo "TAILWINDCSS_VERSION=$LATEST_TAILWIND_VERSION" >> $GITHUB_ENV
           echo "TAILWINDCSS_VERSION_CLEAN=${LATEST_TAILWIND_VERSION//v/}" >> $GITHUB_ENV
-      - name: Get current version from csproj
-        id: get_current_version
+
+      - name: Get current version from NuGet
+        id: get_nuget_version
         run: |
           set -e
-          CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj)
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "Error: Failed to extract current version from csproj file." >&2
-            exit 1
-          fi
-          echo "Current version: $CURRENT_VERSION"
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          PACKAGE_NAME="DotnetDevKR.TailwindCSS"
 
-          # Extract library version and TailwindCSS version
-          LIB_VERSION=$(echo $CURRENT_VERSION | cut -d'+' -f1)
-          CURRENT_TAILWIND_VERSION=$(echo $CURRENT_VERSION | cut -d'+' -f2 | sed 's/v//')
-          if [ -z "$LIB_VERSION" ] || [ -z "$CURRENT_TAILWIND_VERSION" ]; then
-            echo "Error: Malformed version string in csproj file." >&2
-            exit 1
-          fi
+          # Fetch all versions from NuGet API
+          NUGET_RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json")
 
-          echo "Current library version: $LIB_VERSION"
-          echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
-          echo "LIB_VERSION=$LIB_VERSION" >> $GITHUB_ENV
-          echo "CURRENT_TAILWIND_VERSION=$CURRENT_TAILWIND_VERSION" >> $GITHUB_ENV
+          if echo "$NUGET_RESPONSE" | grep -q '"versions"'; then
+            # Get the latest version from NuGet
+            NUGET_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"[^"]+\+v[^"]+' | tail -1 | tr -d '"')
+
+            if [ -z "$NUGET_VERSION" ]; then
+              echo "No version with TailwindCSS metadata found in NuGet. Using default."
+              NUGET_VERSION="0.0.0+v0.0.0"
+            fi
+
+            echo "Latest NuGet version: $NUGET_VERSION"
+            echo "CURRENT_VERSION=$NUGET_VERSION" >> $GITHUB_ENV
+
+            # Extract library version and TailwindCSS version
+            LIB_VERSION=$(echo $NUGET_VERSION | cut -d'+' -f1)
+            CURRENT_TAILWIND_VERSION=$(echo $NUGET_VERSION | cut -d'+' -f2 | sed 's/v//')
+
+            echo "Current library version: $LIB_VERSION"
+            echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
+            echo "LIB_VERSION=$LIB_VERSION" >> $GITHUB_ENV
+            echo "CURRENT_TAILWIND_VERSION=$CURRENT_TAILWIND_VERSION" >> $GITHUB_ENV
+          else
+            echo "Package not found on NuGet. This might be the first publish."
+            echo "CURRENT_VERSION=0.0.0+v0.0.0" >> $GITHUB_ENV
+            echo "LIB_VERSION=0.0.0" >> $GITHUB_ENV
+            echo "CURRENT_TAILWIND_VERSION=0.0.0" >> $GITHUB_ENV
+          fi
 
       - name: Check if update is needed
         id: check_update
