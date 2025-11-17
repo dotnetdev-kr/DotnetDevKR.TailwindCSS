@@ -42,23 +42,38 @@ jobs:
           NUGET_RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json")
 
           if echo "$NUGET_RESPONSE" | grep -q '"versions"'; then
-            # Get the latest version from NuGet
-            NUGET_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"[^"]+\+v[^"]+' | tail -1 | tr -d '"')
+            # Get the latest version from NuGet (build metadata is not included in version list)
+            LIB_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"\d+\.\d+\.\d+' | tail -1 | tr -d '"')
 
-            if [ -z "$NUGET_VERSION" ]; then
-              echo "No version with TailwindCSS metadata found in NuGet. Using default."
-              NUGET_VERSION="0.0.0+v0.0.0"
+            if [ -z "$LIB_VERSION" ]; then
+              echo "No version found in NuGet. Using default."
+              LIB_VERSION="0.0.0"
             fi
 
-            echo "Latest NuGet version: $NUGET_VERSION"
-
-            # Extract library version and TailwindCSS version
-            LIB_VERSION=$(echo $NUGET_VERSION | cut -d'+' -f1)
-            CURRENT_TAILWIND_VERSION=$(echo $NUGET_VERSION | cut -d'+' -f2 | sed 's/v//')
-
-            echo "Current library version: $LIB_VERSION"
-            echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
+            echo "Latest NuGet library version: $LIB_VERSION"
             echo "lib_version=$LIB_VERSION" >> $GITHUB_OUTPUT
+
+            # Fetch the nuspec to get the actual TailwindCSS version from description or release notes
+            NUSPEC_URL="https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/${LIB_VERSION}/${PACKAGE_NAME,,}.nuspec"
+            echo "Fetching nuspec from: $NUSPEC_URL"
+            NUSPEC_RESPONSE=$(curl -s "$NUSPEC_URL")
+
+            # Extract TailwindCSS version from release notes or description
+            # Look for pattern like "v4.1.17" or "4.1.17" in the nuspec
+            CURRENT_TAILWIND_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP 'TailwindCSS[^0-9]*v?\K\d+\.\d+\.\d+' | head -1)
+
+            if [ -z "$CURRENT_TAILWIND_VERSION" ]; then
+              # Fallback: try to extract from version string if it contains build metadata
+              FULL_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP '<version>\K[^<]+')
+              if echo "$FULL_VERSION" | grep -q '+v'; then
+                CURRENT_TAILWIND_VERSION=$(echo "$FULL_VERSION" | cut -d'+' -f2 | sed 's/v//')
+              else
+                echo "Could not determine TailwindCSS version from nuspec. Using 0.0.0"
+                CURRENT_TAILWIND_VERSION="0.0.0"
+              fi
+            fi
+
+            echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
             echo "current_tailwind_version=$CURRENT_TAILWIND_VERSION" >> $GITHUB_OUTPUT
           else
             echo "Package not found on NuGet. This might be the first publish."
@@ -77,12 +92,13 @@ jobs:
             echo "Update needed: $CURRENT_TAILWIND_VERSION -> $TAILWINDCSS_VERSION_CLEAN"
             echo "update_needed=true" >> $GITHUB_OUTPUT
 
-            # Increment patch version (0.1.0 -> 0.1.1)
+            # Increment patch version (0.0.1 -> 0.0.2)
+            # NuGet ignores build metadata (+v4.1.17), so we must increment version number
             IFS='.' read -ra VERSION_PARTS <<< "$LIB_VERSION"
             MAJOR=${VERSION_PARTS[0]}
             MINOR=${VERSION_PARTS[1]}
             PATCH=${VERSION_PARTS[2]}
-            NEW_PATCH=$((PATCH))
+            NEW_PATCH=$((PATCH + 1))
             NEW_LIB_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
 
             echo "New library version: $NEW_LIB_VERSION"
