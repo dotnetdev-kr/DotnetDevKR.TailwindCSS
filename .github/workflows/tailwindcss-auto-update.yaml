@@ -80,7 +80,7 @@ jobs:
       - name: Update version in install.sh
         if: env.UPDATE_NEEDED == 'true'
         run: |
-          sed -i "s|VERSION=\${1:-\"v[0-9.]*\"}|VERSION=\${1:-\"${TAILWINDCSS_VERSION}\"}|" ./DotnetDevKR.TailwindCSS/runtime/install.sh
+          sed -i "s|VERSION=\${1:-\"v[^\"]*\"}|VERSION=\${1:-\"${TAILWINDCSS_VERSION}\"}|" ./DotnetDevKR.TailwindCSS/runtime/install.sh
           echo "Updated install.sh to TailwindCSS version: $TAILWINDCSS_VERSION"
 
       - name: Download TailwindCSS executables
