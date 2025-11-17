@@ -14,6 +14,7 @@ jobs:
       tailwindcss_version: ${{ steps.get_tailwind_version.outputs.tailwindcss_version }}
       tailwindcss_version_clean: ${{ steps.get_tailwind_version.outputs.tailwindcss_version_clean }}
       current_tailwind_version: ${{ steps.get_nuget_version.outputs.current_tailwind_version }}
+      current_revision: ${{ steps.get_nuget_version.outputs.current_revision }}
       lib_version: ${{ steps.get_nuget_version.outputs.lib_version }}
       new_lib_version: ${{ steps.check_update.outputs.new_lib_version }}
       new_version: ${{ steps.check_update.outputs.new_version }}
@@ -42,43 +43,53 @@ jobs:
           NUGET_RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json")
 
           if echo "$NUGET_RESPONSE" | grep -q '"versions"'; then
-            # Get the latest version from NuGet (build metadata is not included in version list)
-            LIB_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"\d+\.\d+\.\d+' | tail -1 | tr -d '"')
+            # Get the latest version from NuGet (supports both 3-part and 4-part versions)
+            # Version format: {TailwindMajor}.{TailwindMinor}.{TailwindPatch}.{Revision}
+            LIB_VERSION=$(echo "$NUGET_RESPONSE" | grep -oP '"\d+\.\d+\.\d+(\.\d+)?' | tail -1 | tr -d '"')
 
             if [ -z "$LIB_VERSION" ]; then
               echo "No version found in NuGet. Using default."
-              LIB_VERSION="0.0.0"
-            fi
+              LIB_VERSION="0.0.0.0"
+              CURRENT_TAILWIND_VERSION="0.0.0"
+              CURRENT_REVISION="0"
+            else
+              echo "Latest NuGet library version: $LIB_VERSION"
 
-            echo "Latest NuGet library version: $LIB_VERSION"
-            echo "lib_version=$LIB_VERSION" >> $GITHUB_OUTPUT
-
-            # Fetch the nuspec to get the actual TailwindCSS version from description or release notes
-            NUSPEC_URL="https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/${LIB_VERSION}/${PACKAGE_NAME,,}.nuspec"
-            echo "Fetching nuspec from: $NUSPEC_URL"
-            NUSPEC_RESPONSE=$(curl -s "$NUSPEC_URL")
-
-            # Extract TailwindCSS version from release notes or description
-            # Look for pattern like "v4.1.17" or "4.1.17" in the nuspec
-            CURRENT_TAILWIND_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP 'TailwindCSS[^0-9]*v?\K\d+\.\d+\.\d+' | head -1)
-
-            if [ -z "$CURRENT_TAILWIND_VERSION" ]; then
-              # Fallback: try to extract from version string if it contains build metadata
-              FULL_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP '<version>\K[^<]+')
-              if echo "$FULL_VERSION" | grep -q '+v'; then
-                CURRENT_TAILWIND_VERSION=$(echo "$FULL_VERSION" | cut -d'+' -f2 | sed 's/v//')
+              # Parse version: could be 3-part (old) or 4-part (new format)
+              IFS='.' read -ra VERSION_PARTS <<< "$LIB_VERSION"
+              if [ ${#VERSION_PARTS[@]} -eq 4 ]; then
+                # New format: TailwindMajor.TailwindMinor.TailwindPatch.Revision
+                CURRENT_TAILWIND_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.${VERSION_PARTS[2]}"
+                CURRENT_REVISION="${VERSION_PARTS[3]}"
               else
-                echo "Could not determine TailwindCSS version from nuspec. Using 0.0.0"
-                CURRENT_TAILWIND_VERSION="0.0.0"
+                # Old format: need to fetch from nuspec
+                NUSPEC_URL="https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/${LIB_VERSION}/${PACKAGE_NAME,,}.nuspec"
+                echo "Fetching nuspec from: $NUSPEC_URL"
+                NUSPEC_RESPONSE=$(curl -s "$NUSPEC_URL")
+
+                CURRENT_TAILWIND_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP 'TailwindCSS[^0-9]*v?\K\d+\.\d+\.\d+' | head -1)
+                if [ -z "$CURRENT_TAILWIND_VERSION" ]; then
+                  FULL_VERSION=$(echo "$NUSPEC_RESPONSE" | grep -oP '<version>\K[^<]+')
+                  if echo "$FULL_VERSION" | grep -q '+v'; then
+                    CURRENT_TAILWIND_VERSION=$(echo "$FULL_VERSION" | cut -d'+' -f2 | sed 's/v//')
+                  else
+                    CURRENT_TAILWIND_VERSION="0.0.0"
+                  fi
+                fi
+                CURRENT_REVISION="0"
               fi
             fi
 
+            echo "lib_version=$LIB_VERSION" >> $GITHUB_OUTPUT
             echo "Current TailwindCSS version: $CURRENT_TAILWIND_VERSION"
+            echo "Current revision: $CURRENT_REVISION"
             echo "current_tailwind_version=$CURRENT_TAILWIND_VERSION" >> $GITHUB_OUTPUT
+            echo "current_revision=$CURRENT_REVISION" >> $GITHUB_OUTPUT
           else
             echo "Package not found on NuGet. This might be the first publish."
-            echo "lib_version=0.0.0" >> $GITHUB_OUTPUT
+            echo "lib_version=0.0.0.0" >> $GITHUB_OUTPUT
             echo "current_tailwind_version=0.0.0" >> $GITHUB_OUTPUT
+            echo "current_revision=0" >> $GITHUB_OUTPUT
           fi
 
       - name: Check if update is needed
@@ -86,24 +97,20 @@ jobs:
         run: |
           CURRENT_TAILWIND_VERSION="${{ steps.get_nuget_version.outputs.current_tailwind_version }}"
           TAILWINDCSS_VERSION_CLEAN="${{ steps.get_tailwind_version.outputs.tailwindcss_version_clean }}"
-          LIB_VERSION="${{ steps.get_nuget_version.outputs.lib_version }}"
+          CURRENT_REVISION="${{ steps.get_nuget_version.outputs.current_revision }}"
 
           if [ "$CURRENT_TAILWIND_VERSION" != "$TAILWINDCSS_VERSION_CLEAN" ]; then
             echo "Update needed: $CURRENT_TAILWIND_VERSION -> $TAILWINDCSS_VERSION_CLEAN"
             echo "update_needed=true" >> $GITHUB_OUTPUT
 
-            # Increment patch version (0.0.1 -> 0.0.2)
-            # NuGet ignores build metadata (+v4.1.17), so we must increment version number
-            IFS='.' read -ra VERSION_PARTS <<< "$LIB_VERSION"
-            MAJOR=${VERSION_PARTS[0]}
-            MINOR=${VERSION_PARTS[1]}
-            PATCH=${VERSION_PARTS[2]}
-            NEW_PATCH=$((PATCH + 1))
-            NEW_LIB_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+            # New TailwindCSS version, reset revision to 0
+            # Version format: {TailwindMajor}.{TailwindMinor}.{TailwindPatch}.{Revision}
+            NEW_REVISION="0"
+            NEW_LIB_VERSION="$TAILWINDCSS_VERSION_CLEAN.$NEW_REVISION"
 
             echo "New library version: $NEW_LIB_VERSION"
             echo "new_lib_version=$NEW_LIB_VERSION" >> $GITHUB_OUTPUT
-            echo "new_version=$NEW_LIB_VERSION+v$TAILWINDCSS_VERSION_CLEAN" >> $GITHUB_OUTPUT
+            echo "new_version=$NEW_LIB_VERSION" >> $GITHUB_OUTPUT
           else
             echo "No update needed. Current version is already up to date."
             echo "update_needed=false" >> $GITHUB_OUTPUT
