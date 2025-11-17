@@ -73,7 +73,8 @@ jobs:
             MAJOR=${VERSION_PARTS[0]}
             MINOR=${VERSION_PARTS[1]}
             PATCH=${VERSION_PARTS[2]}
-            NEW_PATCH=$((PATCH + 1))
+            # NEW_PATCH=$((PATCH + 1))
+            NEW_PATCH=$((PATCH))
             NEW_LIB_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
 
             echo "New library version: $NEW_LIB_VERSION"
@@ -117,16 +118,6 @@ jobs:
             --no-build --no-restore \
             --output ./artifacts \
             /p:Version=${{ env.NEW_VERSION }}
-
-      - name: Commit changes
-        if: env.UPDATE_NEEDED == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj
-          git add ./DotnetDevKR.TailwindCSS/runtime/install.sh
-          git commit -m "chore: Update TailwindCSS to ${{ env.TAILWINDCSS_VERSION }} and bump version to ${{ env.NEW_VERSION }}"
-          git tag "v${{ env.NEW_LIB_VERSION }}"
 
       - name: Push changes and tags
         if: env.UPDATE_NEEDED == 'true'
@@ -174,3 +165,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
