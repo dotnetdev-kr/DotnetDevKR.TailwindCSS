@@ -4,13 +4,19 @@
   <Nullable>enable</Nullable>
     <TargetFramework>net6.0</TargetFramework>
     <PackageId>DotnetDevKR.TailwindCSS</PackageId>
+    <Description>Automatic TailwindCSS compilation for .NET projects without Node.js dependency. Includes cross-platform standalone CLI with MSBuild integration supporting Blazor, ASP.NET Core, and Razor projects.</Description>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS</RepositoryUrl>
     <Version>4.1.17.0</Version>
     <Authors>DotnetDevKR</Authors>
-    <PackageTags>TailwindCSS</PackageTags>
+    <Copyright>Copyright (c) 2024-2025 DotnetDevKR</Copyright>
+    <PackageTags>tailwindcss;tailwind;css;msbuild;aspnetcore;blazor;compiler;build;frontend;no-nodejs;standalone</PackageTags>
+    <PackageReleaseNotes>See https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS/releases</PackageReleaseNotes>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="15.9.20" />
@@ -23,5 +29,6 @@
     <Content Include="build\**" PackagePath="build" />
     <None Include="runtime\**\*" Pack="true" PackagePath="build/runtime" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
