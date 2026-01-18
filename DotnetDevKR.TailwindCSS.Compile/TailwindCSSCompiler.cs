@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DotnetDevKR.TailwindCSS;
@@ -11,34 +12,48 @@ public class TailwindCSSCompiler
 {
     public async Task CompileAsync(
         string MSBuildThisFileDirectory,
-        string InputFilename,
-        string OutputFilename,
-        string ProjectDir,
+        string? InputFilename,
+        string? OutputFilename,
+        string? ProjectDir,
         bool isMinify = false,
-        bool isDebug = false
+        bool isDebug = false,
+        CancellationToken cancellationToken = default
     )
     {
-        var process = CreateTailwindCSSProcess(
+        using var process = CreateTailwindCSSProcess(
             MSBuildThisFileDirectory,
             $"-i {InputFilename} -o {OutputFilename} --cwd {ProjectDir}" +
             (isMinify ? " --minify" : "") +
             (isDebug ? " --map" : "")
         );
 
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromMinutes(5));
+
         var errorOutput = new MemoryStream();
 
-        process.Start();
-        var outputTask = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null);
-        var errorTask = process.StandardError.BaseStream.CopyToAsync(errorOutput);
-        await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync());
+        try
+        {
+            process.Start();
+            var outputTask = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, timeoutCts.Token);
+            var errorTask = process.StandardError.BaseStream.CopyToAsync(errorOutput, timeoutCts.Token);
+            await Task.WhenAll(outputTask, errorTask);
+            await process.WaitForExitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            throw new TailwindCSSCompilationException("TailwindCSS compilation timed out after 5 minutes.", exitCode: -1);
+        }
 
         if (process.ExitCode != 0)
         {
             var errorOutputText = Encoding.UTF8.GetString(errorOutput.ToArray());
-            throw new Exception($"TailwindCSS process exited with non-zero exit code: {process.ExitCode}. Output: {errorOutputText}");
+            throw new TailwindCSSCompilationException(
+                $"TailwindCSS process exited with code {process.ExitCode}.",
+                compilerOutput: errorOutputText,
+                exitCode: process.ExitCode);
         }
-
-        process.Dispose();
     }
 
     internal static Process CreateTailwindCSSProcess(string MSBuildThisFileDirectory, string arguments)
