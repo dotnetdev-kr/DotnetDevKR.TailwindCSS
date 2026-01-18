@@ -2,14 +2,24 @@
   <ItemGroup>
     <CompilerVisibleProperty Include="ProjectDir" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <RunTailwindCSS Condition="'$(RunTailwindCSS)' == ''">true</RunTailwindCSS>
+    <InputFilename Condition="'$(InputFilename)' == ''">$(ProjectDir)tailwind.css</InputFilename>
+    <IsMinify Condition="'$(IsMinify)' == ''">false</IsMinify>
+    <DebugMode Condition="'$(DebugMode)' == ''">false</DebugMode>
+  </PropertyGroup>
+
   <UsingTask TaskName="TailwindCSSTask" AssemblyFile="$(MSBuildThisFileDirectory)..\lib\net6.0\DotnetDevKR.TailwindCSS.dll" />
   <Target
     Name="RunTailwindCSSTask"
     BeforeTargets="Build"
+    Condition="'$(RunTailwindCSS)' != 'false' AND '$(DesignTimeBuild)' != 'true' AND '$(OutputFilename)' != ''"
     Inputs="@(Watch);$(InputFilename)"
     Outputs="$(OutputFilename)">
 
     <Message Text="Running Tailwind CSS task..." Importance="high" />
+    <Message Text="TailwindCSS: Compiling '$(InputFilename)' -> '$(OutputFilename)' (Minify=$(IsMinify), Debug=$(DebugMode))" Importance="high" />
     <TailwindCSSTask
       MSBuildThisFileDirectory="$(MSBuildThisFileDirectory)"
       InputFilename="$(InputFilename)"

@@ -11,6 +11,7 @@
     <Watch Include="**\*.razor" AlwaysRebuild="true" />
     <Watch Include="**\*.html" AlwaysRebuild="true" />
     <Watch Include="**\*.cshtml" AlwaysRebuild="true" />
-    <Watch Include="**\*.cs" AlwaysRebuild="true" />
+    <Watch Include="**\*.css" AlwaysRebuild="true" />
+    <Watch Include="tailwind.config.js" Condition="Exists('$(ProjectDir)tailwind.config.js')" AlwaysRebuild="true" />
   </ItemGroup>
 </Project>
