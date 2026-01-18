@@ -1,0 +1,30 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#0F172A"/>
+
+  <!-- Tailwind wave/wind pattern -->
+  <path d="M32 48C32 48 40 36 52 36C64 36 64 48 76 48C88 48 96 36 96 36"
+        stroke="#38BDF8"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <path d="M32 64C32 64 40 52 52 52C64 52 64 64 76 64C88 64 96 52 96 52"
+        stroke="#06B6D4"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <path d="M32 80C32 80 40 68 52 68C64 68 64 80 76 80C88 80 96 68 96 68"
+        stroke="#38BDF8"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- .NET accent dot -->
+  <circle cx="96" cy="92" r="8" fill="#512BD4"/>
+  <circle cx="96" cy="92" r="4" fill="#E5E5FF"/>
+</svg>
