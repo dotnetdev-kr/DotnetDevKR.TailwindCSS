@@ -10,7 +10,7 @@
     <PackageProjectUrl>https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS</RepositoryUrl>
-    <Version>4.1.17.0</Version>
+    <Version>4.1.18.2</Version>
     <Authors>DotnetDevKR</Authors>
     <Copyright>Copyright (c) 2024-2025 DotnetDevKR</Copyright>
     <PackageTags>tailwindcss;tailwind;css;msbuild;aspnetcore;blazor;compiler;build;frontend;no-nodejs;standalone</PackageTags>
