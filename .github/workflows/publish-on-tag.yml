@@ -1,0 +1,98 @@
+name: Publish NuGet on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION from tag: $TAG_NAME"
+
+      - name: Verify csproj version matches tag
+        run: |
+          CSPROJ_VERSION=$(grep -oP '<Version>\K[^<]+' ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+
+          if [ "$CSPROJ_VERSION" != "$TAG_VERSION" ]; then
+            echo "Warning: csproj version ($CSPROJ_VERSION) doesn't match tag version ($TAG_VERSION)"
+            echo "Updating csproj to match tag version..."
+            sed -i "s|<Version>.*</Version>|<Version>$TAG_VERSION</Version>|" ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj
+          else
+            echo "Version match confirmed: $CSPROJ_VERSION"
+          fi
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.x"
+
+      - name: Restore dependencies
+        run: dotnet restore DotnetDevKR.TailwindCSS.sln
+
+      - name: Build
+        run: dotnet build DotnetDevKR.TailwindCSS.sln --configuration Release --no-restore
+
+      - name: Pack
+        run: |
+          dotnet pack ./DotnetDevKR.TailwindCSS/DotnetDevKR.TailwindCSS.csproj --configuration Release \
+            --no-build --no-restore \
+            --output ./artifacts \
+            /p:Version=${{ steps.version.outputs.version }}
+
+      - name: Publish to NuGet.org
+        run: |
+          dotnet nuget push ./artifacts/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Publish to GitHub Packages
+        run: |
+          dotnet nuget push ./artifacts/*.nupkg \
+            --source https://nuget.pkg.github.com/dotnetdev-kr/index.json \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## DotnetDevKR.TailwindCSS ${{ steps.version.outputs.tag }}
+
+            ### Installation
+            ```bash
+            dotnet add package DotnetDevKR.TailwindCSS --version ${{ steps.version.outputs.version }}
+            ```
+
+            ### Changes
+            See [commit history](https://github.com/dotnetdev-kr/DotnetDevKR.TailwindCSS/commits/${{ steps.version.outputs.tag }}) for details.
+          files: ./artifacts/*.nupkg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
